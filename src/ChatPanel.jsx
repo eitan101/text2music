@@ -90,7 +90,7 @@ Instructions:
 
   return (
     <div 
-      className={`fixed right-0 top-0 bottom-0 w-96 bg-slate-900 border-l border-slate-700 shadow-2xl transform transition-transform duration-300 ease-in-out z-50 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+      className={`fixed right-0 top-0 bottom-0 w-[450px] bg-slate-900 border-l border-slate-700 shadow-2xl transform transition-transform duration-300 ease-in-out z-50 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
     >
       <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-800/50">
         <div className="flex items-center gap-2">
@@ -143,8 +143,8 @@ Instructions:
             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-indigo-600' : 'bg-slate-700'}`}>
               {msg.role === 'user' ? <User size={16} className="text-white" /> : <Bot size={16} className="text-indigo-400" />}
             </div>
-            <div className={`flex flex-col gap-1 max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <div className={`text-sm rounded-2xl px-4 py-2 custom-markdown ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-200'}`}>
+            <div className={`flex flex-col gap-1 max-w-[90%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+              <div className={`text-sm rounded-2xl px-4 py-2 custom-markdown w-full ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-200'}`}>
                 {msg.role === 'user' ? (
                   <p>{msg.content}</p>
                 ) : (
@@ -158,13 +158,13 @@ Instructions:
                         
                         if (!inline && match) {
                           return (
-                            <div className="my-3 rounded-lg overflow-hidden border border-slate-700 bg-slate-950">
-                              <div className="flex justify-between items-center bg-slate-900 px-3 py-1.5 border-b border-slate-700">
-                                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">{match[1]}</span>
+                            <div className="my-3 rounded-lg overflow-hidden border border-slate-700 bg-slate-950 w-full">
+                              <div className="flex justify-between items-center bg-slate-900 px-3 py-1.5 border-b border-slate-700 gap-2">
+                                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider truncate">{match[1]}</span>
                                 {isMelodyScript && (
                                   <button 
                                     onClick={() => onApplyScript(String(children).trim())}
-                                    className="flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded transition-colors"
+                                    className="flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2 py-1 rounded transition-colors shrink-0 whitespace-nowrap"
                                   >
                                     <Check size={12} /> APPLY TO EDITOR
                                   </button>
