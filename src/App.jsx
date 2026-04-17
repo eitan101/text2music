@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as Tone from 'tone';
-import { Play, Pause, Square, Music, Code, HelpCircle, Save, Download, Settings, ChevronRight, AlertCircle, Volume2, X, Info, Keyboard, Loader2, CloudDownload, Upload, BellRing, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, Square, Music, Code, HelpCircle, Save, Download, Settings, ChevronRight, AlertCircle, Volume2, X, Info, Keyboard, Loader2, CloudDownload, Upload, BellRing, SkipBack, SkipForward, Sparkles } from 'lucide-react';
 import { Midi } from '@tonejs/midi';
 import { beatsToTransportTime } from './utils';
 import { parseMusic, NOTE_TO_FREQ } from './parser';
@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import LZString from 'lz-string';
 import specContent from '../spec.md?raw';
+import ChatPanel from './ChatPanel';
 
 /**
  * MELODYSCRIPT STUDIO v0.6.6
@@ -87,6 +88,7 @@ const App = () => {
   const [tempo, setTempo] = useState(120);
   const [metronomeEnabled, setMetronomeEnabled] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   const [libLoaded, setLibLoaded] = useState(false);
   const [libError, setLibError] = useState(false);
@@ -547,6 +549,14 @@ const App = () => {
             >
               <BellRing size={16} />
             </button>
+            <div className="w-px h-4 bg-slate-700 mx-1"></div>
+            <button
+              onClick={() => setShowChat(!showChat)}
+              className={`p-1 rounded-md transition-colors ${showChat ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+              title="Toggle AI Assistant"
+            >
+              <Sparkles size={16} />
+            </button>
           </div>
 
           <div className="flex gap-2 items-center">
@@ -595,6 +605,14 @@ const App = () => {
             </div>
           </div>
         )}
+
+        <ChatPanel 
+          isOpen={showChat} 
+          onClose={() => setShowChat(false)}
+          currentScript={script}
+          onApplyScript={(newScript) => setScript(newScript)}
+          specContent={specContent}
+        />
 
         <section className="w-1/3 flex flex-col border-r border-slate-800 bg-slate-900/30">
           <div className="flex items-center justify-between px-4 py-2.5 bg-slate-800/40 border-b border-slate-800">

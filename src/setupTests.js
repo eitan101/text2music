@@ -13,3 +13,5 @@ HTMLCanvasElement.prototype.getContext = () => ({
   roundRect: vi.fn(),
   fill: vi.fn()
 });
+
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
