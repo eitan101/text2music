@@ -76,6 +76,23 @@ CH2: G4-6`;
     expect(result.totalBeats).toBe(6);
   });
 
+  it('should parse volume directives', () => {
+    const script = `CH1 @INST: PIANO @VOL: 80
+CH2 @VOL: 50
+CH2 @INST: CELLO`;
+    const result = parseMusic(script);
+    expect(result.channels['1'].volume).toBe(80);
+    expect(result.channels['2'].volume).toBe(50);
+    expect(result.channels['1'].instrument).toBe('PIANO');
+    expect(result.channels['2'].instrument).toBe('CELLO');
+  });
+
+  it('should default volume to 100', () => {
+    const script = `CH1 @INST: PIANO`;
+    const result = parseMusic(script);
+    expect(result.channels['1'].volume).toBe(100);
+  });
+
   it('should ignore pipe characters', () => {
     const script = `CH1: C4-1 | D4-1 | E4-1`;
     const result = parseMusic(script);

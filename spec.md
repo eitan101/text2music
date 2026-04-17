@@ -16,6 +16,10 @@ Each track in MelodyScript is a "Channel" (CH1, CH2, etc.). You must assign an i
 
 - **Initialization Syntax:** `CH<number> @INST: <INSTRUMENT_NAME>`
   - *Example:* `CH1 @INST: PIANO`
+- **Volume Control:** `CH<number> @VOL: <0-100>`
+  - Sets the volume level for the channel (default is 100). Can be standalone or inline.
+  - *Example (Standalone):* `CH1 @VOL: 80`
+  - *Example (Inline):* `CH1 @INST: PIANO @VOL: 80`
 - **Supported Instruments:**
   `BASS-ELECTRIC`, `BASSOON`, `CELLO`, `CLARINET`, `CONTRABASS`, `FLUTE`, `FRENCH-HORN`, `GUITAR-ACOUSTIC`, `GUITAR-ELECTRIC`, `GUITAR-NYLON`, `HARMONIUM`, `HARP`, `ORGAN`, `PIANO`, `SAXOPHONE`, `TROMBONE`, `TRUMPET`, `TUBA`, `VIOLIN`, `XYLOPHONE`.
 

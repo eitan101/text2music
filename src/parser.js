@@ -42,12 +42,23 @@ export const parseMusic = (script) => {
         return;
       }
 
-      const instMatch = trimmed.match(/^CH(\d+)\s+@INST:\s*([\w-]+)$/i);
+      const instMatch = trimmed.match(/^CH(\d+)\s+@INST:\s*([\w-]+)(?:\s+@VOL:\s*(\d+))?$/i);
       if (instMatch) {
         const chNum = instMatch[1];
         const instType = instMatch[2].toUpperCase();
-        if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO' };
+        const vol = instMatch[3] ? parseInt(instMatch[3], 10) : null;
+        if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100 };
         channels[chNum].instrument = instType;
+        if (vol !== null) channels[chNum].volume = Math.max(0, Math.min(100, vol));
+        return;
+      }
+
+      const volMatch = trimmed.match(/^CH(\d+)\s+@VOL:\s*(\d+)$/i);
+      if (volMatch) {
+        const chNum = volMatch[1];
+        const vol = parseInt(volMatch[2], 10);
+        if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100 };
+        channels[chNum].volume = Math.max(0, Math.min(100, vol));
         return;
       }
 
@@ -56,7 +67,7 @@ export const parseMusic = (script) => {
 
       const chNum = match[1];
       const tokensStr = match[2];
-      if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO' };
+      if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100 };
 
       const tokens = tokensStr.split(/\s+/);
       tokens.forEach(token => {

@@ -300,11 +300,12 @@ const App = () => {
         const channel = parsedMusic.channels[chId];
         const inst = instrumentsRef.current[channel.instrument];
         if (inst) {
+          const velocity = (channel.volume || 100) / 100;
           channel.notes.forEach(noteObj => {
             Tone.Transport.schedule((time) => {
               const noteNames = noteObj.chord.map(n => n.name);
               const toneDur = noteObj.duration * (60 / Tone.Transport.bpm.value);
-              inst.triggerAttackRelease(noteNames, toneDur, time);
+              inst.triggerAttackRelease(noteNames, toneDur, time, velocity);
             }, beatsToTransportTime(noteObj.start, parsedMusic.signature || 4));
           });
         }
@@ -650,6 +651,9 @@ const App = () => {
                   <span className="text-[10px] font-bold text-slate-400">CH{ch}</span>
                   <span className={`text-[10px] font-mono font-bold tracking-tight ${loadedInstruments.has(parsedMusic.channels[ch].instrument) ? 'text-indigo-300' : 'text-slate-600 italic'}`}>
                     {parsedMusic.channels[ch].instrument}
+                  </span>
+                  <span className="text-[9px] font-mono bg-slate-900/50 px-1.5 py-0.5 rounded text-slate-500 border border-white/5">
+                    VOL: {parsedMusic.channels[ch].volume}
                   </span>
                 </div>
               ))}
