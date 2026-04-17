@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as Tone from 'tone';
-import { Play, Pause, Square, Music, Code, HelpCircle, Save, Download, Settings, ChevronRight, AlertCircle, Volume2, X, Info, Keyboard, Loader2, CloudDownload, Upload } from 'lucide-react';
+import { Play, Pause, Square, Music, Code, HelpCircle, Save, Download, Settings, ChevronRight, AlertCircle, Volume2, X, Info, Keyboard, Loader2, CloudDownload, Upload, BellRing } from 'lucide-react';
 import { Midi } from '@tonejs/midi';
+import { beatsToTransportTime } from './utils';
+import { parseMusic, NOTE_TO_FREQ } from './parser';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import specContent from '../spec.md?raw';
 
 /**
  * MELODYSCRIPT STUDIO v0.6.6
@@ -9,30 +14,21 @@ import { Midi } from '@tonejs/midi';
  * Fix: Explicitly forcing .mp3 extension for SampleLibrary.
  */
 
-const DEFAULT_SCRIPT = `// MelodyScript v0.6.6 - Short Chords & Inversions
+const DEFAULT_SCRIPT = `// MelodyScript v0.6.7 - Numerical Beat Duration
+@TEMPO: 120
+@SIGNATURE: 4/4
+
 CH1 @INST: PIANO
-// Chords can use short notation like C, Cm, C7, etc.
-// Supports inversions with slash notation, e.g., C/E
-CH1: C-2 C/E-2 F-2 G-2 C-1
+// Chords use short notation like C, Cm, C7, etc.
+// The number after the hyphen represents the exact number of beats!
+// e.g. C-4 is a whole bar in 4/4 time. Am-3 is a whole bar in 3/4.
+CH1: C-2 C/E-2 F-2 G-2 C-4
 
 CH2 @INST: CELLO
-// Single notes still work as expected
-CH2: C2-2 F2-2 G2-2 C2-1
+// R stands for Rest
+CH2: C5-2 F5-2 G5-2 C5-6
 
-// Try: CH1: Em-4 D-4`;
-
-const NOTE_TO_FREQ = {
-  'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5,
-  'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
-};
-
-const DURATION_MAP = {
-  '1': '1n', '2': '2n', '4': '4n', '8': '8n', '16': '16n'
-};
-
-const DURATION_VALS = {
-  '1': 4, '2': 2, '4': 1, '8': 0.5, '16': 0.25
-};
+// Try: CH1: Em-1 D-0.5 C-0.5`;
 
 const SUPPORTED_INSTRUMENTS = [
   'BASS-ELECTRIC', 'BASSOON', 'CELLO', 'CLARINET', 'CONTRABASS',
@@ -41,18 +37,13 @@ const SUPPORTED_INSTRUMENTS = [
   'TRUMPET', 'TUBA', 'VIOLIN', 'XYLOPHONE'
 ];
 
-const beatsToTransportTime = (beats) => {
-  const bars = Math.floor(beats / 4);
-  const remBeats = Math.floor(beats % 4);
-  const sixteenths = (beats % 1) * 4;
-  return `${bars}:${remBeats}:${sixteenths}`;
-};
-
 const App = () => {
   const [script, setScript] = useState(DEFAULT_SCRIPT);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPos, setPlaybackPos] = useState(0);
+  const [viewScrollLeft, setViewScrollLeft] = useState(0);
   const [tempo, setTempo] = useState(120);
+  const [metronomeEnabled, setMetronomeEnabled] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   const [libLoaded, setLibLoaded] = useState(false);
@@ -64,10 +55,13 @@ const App = () => {
   const loadingRef = useRef(new Set());
   const loadedRef = useRef(new Set());
   const canvasRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   const animationRef = useRef(null);
   const lastPosRef = useRef(0);
   const instrumentsRef = useRef({});
   const midiInputRef = useRef(null);
+  const metronomeSynthRef = useRef(null);
+  const metronomeLoopIdRef = useRef(null);
 
   useEffect(() => {
     window.Tone = Tone;
@@ -77,6 +71,9 @@ const App = () => {
     scriptTag.onload = () => setLibLoaded(true);
     scriptTag.onerror = () => setLibError(true);
     document.head.appendChild(scriptTag);
+
+    metronomeSynthRef.current = new Tone.MembraneSynth().toDestination();
+    metronomeSynthRef.current.volume.value = -2; // Increased from -10 for better visibility in the mix
   }, []);
 
   const loadInstrument = async (name) => {
@@ -120,145 +117,7 @@ const App = () => {
   };
 
   const parsedMusic = useMemo(() => {
-    try {
-      const channels = {};
-      const barLines = [];
-      const lines = script.split('\n');
-
-      const CHORD_QUALITIES = {
-        '': [0, 4, 7], // Major
-        'm': [0, 3, 7], // Minor
-        'min': [0, 3, 7],
-        'maj': [0, 4, 7],
-        '7': [0, 4, 7, 10], // Dominant 7th
-        'maj7': [0, 4, 7, 11],
-        'm7': [0, 3, 7, 10],
-        'sus2': [0, 2, 7],
-        'sus4': [0, 5, 7],
-        'aug': [0, 4, 8],
-        'dim': [0, 3, 6]
-      };
-
-      lines.forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('//')) return;
-
-        const instMatch = trimmed.match(/^CH(\d+)\s+@INST:\s*([\w-]+)$/i);
-        if (instMatch) {
-          const chNum = instMatch[1];
-          const instType = instMatch[2].toUpperCase();
-          if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO' };
-          channels[chNum].instrument = instType;
-          return;
-        }
-
-        const match = trimmed.match(/^CH(\d+):\s*(.*)$/i);
-        if (!match) return;
-
-        const chNum = match[1];
-        const tokensStr = match[2];
-        if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO' };
-
-        const tokens = tokensStr.split(/\s+/);
-        tokens.forEach(token => {
-          if (token === '|') {
-            barLines.push(channels[chNum].totalDuration);
-            return;
-          }
-
-          const parts = token.split('-');
-          if (parts.length !== 2) return;
-
-          const notesPart = parts[0]; // e.g., "C4+E4+G4" or "Cm"
-          const durKey = parts[1];   // e.g., "4"
-
-          const duration = DURATION_VALS[durKey] || 1;
-          const toneDur = DURATION_MAP[durKey] || '4n';
-
-          if (notesPart.toUpperCase() === 'R') {
-            channels[chNum].totalDuration += duration;
-            return;
-          }
-
-          const individualNotes = notesPart.split('+');
-          const chordNotes = [];
-
-          individualNotes.forEach(noteStr => {
-            const slashParts = noteStr.split('/');
-            const chordBase = slashParts[0];
-            const bassNote = slashParts[1];
-
-            // Try single note first
-            const noteMatch = chordBase.match(/^([A-Ga-g]#?|[A-Ga-g]b?)(\d)$/);
-            if (noteMatch && !bassNote) {
-              const [_, name, oct] = noteMatch;
-              const pitch = (parseInt(oct) * 12) + NOTE_TO_FREQ[name.toUpperCase()];
-              chordNotes.push({
-                pitch,
-                name: `${name}${oct}`
-              });
-            } else {
-              // Try short chord
-              const shortChordMatch = chordBase.match(/^([A-Ga-g]#?|[A-Ga-g]b?)(m|maj|min|7|maj7|m7|sus2|sus4|aug|dim)?$/);
-              if (shortChordMatch) {
-                const [_, root, quality = ''] = shortChordMatch;
-                const oct = 4; // Default to 4
-                const rootPitch = (oct * 12) + NOTE_TO_FREQ[root.toUpperCase()];
-                const intervals = CHORD_QUALITIES[quality];
-                
-                if (intervals) {
-                  let calculatedIntervals = [...intervals];
-                  
-                  if (bassNote) {
-                    const bassPitchClass = NOTE_TO_FREQ[bassNote.toUpperCase()];
-                    const rootPitchClass = NOTE_TO_FREQ[root.toUpperCase()];
-                    const chordPitches = intervals.map(i => (rootPitchClass + i) % 12);
-                    const bassIndex = chordPitches.indexOf(bassPitchClass);
-                    
-                    if (bassIndex !== -1) {
-                      // True inversion: rotate intervals
-                      calculatedIntervals = [
-                        ...intervals.slice(bassIndex),
-                        ...intervals.slice(0, bassIndex).map(i => i + 12)
-                      ];
-                    } else {
-                      // Add bass note at lower octave
-                      const bassPitch = (3 * 12) + bassPitchClass;
-                      chordNotes.push({
-                        pitch: bassPitch,
-                        name: Tone.Frequency(bassPitch, "midi").toNote()
-                      });
-                    }
-                  }
-                  
-                  calculatedIntervals.forEach(interval => {
-                    const pitch = rootPitch + interval;
-                    const noteName = Tone.Frequency(pitch, "midi").toNote();
-                    chordNotes.push({ pitch, name: noteName });
-                  });
-                }
-              }
-            }
-          });
-
-          if (chordNotes.length > 0) {
-            channels[chNum].notes.push({
-              chord: chordNotes,
-              start: channels[chNum].totalDuration,
-              duration,
-              toneDur
-            });
-            channels[chNum].totalDuration += duration;
-          }
-        });
-      });
-      // Deduplicate bar lines
-      const uniqueBarLines = [...new Set(barLines)];
-      return { channels, barLines: uniqueBarLines };
-    } catch (e) {
-      console.error("Parse error:", e);
-      return { channels: {}, barLines: [] };
-    }
+    return parseMusic(script);
   }, [script]);
 
   useEffect(() => {
@@ -283,6 +142,40 @@ const App = () => {
     Tone.Transport.bpm.value = tempo;
   }, [tempo]);
 
+  useEffect(() => {
+    if (parsedMusic.tempo) {
+      setTempo(parsedMusic.tempo);
+    }
+    if (parsedMusic.signature) {
+      Tone.Transport.timeSignature = parsedMusic.signature;
+    } else {
+      Tone.Transport.timeSignature = 4;
+    }
+  }, [parsedMusic.tempo, parsedMusic.signature]);
+
+  useEffect(() => {
+    if (metronomeEnabled && isPlaying) {
+      if (metronomeLoopIdRef.current === null) {
+        const beatsPerBar = Array.isArray(parsedMusic.signature) ? parsedMusic.signature[0] : (parsedMusic.signature || 4);
+        let currentBeat = Math.floor(Tone.Transport.seconds * (tempo / 60));
+        
+        metronomeLoopIdRef.current = Tone.Transport.scheduleRepeat((time) => {
+          if (currentBeat % beatsPerBar === 0) {
+            metronomeSynthRef.current.triggerAttackRelease("C3", "8n", time, 1);
+          } else {
+            metronomeSynthRef.current.triggerAttackRelease("C4", "8n", time, 0.5);
+          }
+          currentBeat++;
+        }, "4n");
+      }
+    } else {
+      if (metronomeLoopIdRef.current !== null) {
+        Tone.Transport.clear(metronomeLoopIdRef.current);
+        metronomeLoopIdRef.current = null;
+      }
+    }
+  }, [metronomeEnabled, isPlaying, parsedMusic.signature, tempo]);
+
   const handleMidiFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -296,28 +189,11 @@ const App = () => {
       
       const existingChannels = Object.keys(parsedMusic.channels || {}).map(Number);
       let nextCh = existingChannels.length > 0 ? Math.max(...existingChannels) + 1 : 1;
-      
-      const beatsToDur = [
-        { val: 4, key: '1' },
-        { val: 2, key: '2' },
-        { val: 1, key: '4' },
-        { val: 0.5, key: '8' },
-        { val: 0.25, key: '16' }
-      ];
 
-      const findClosestDur = (beats) => {
-        let closest = beatsToDur[0];
-        let minDist = Math.abs(beats - closest.val);
-        for (let i = 1; i < beatsToDur.length; i++) {
-          const dist = Math.abs(beats - beatsToDur[i].val);
-          if (dist < minDist) {
-            minDist = dist;
-            closest = beatsToDur[i];
-          }
-        }
-        return closest.key;
+      const formatBeats = (beats) => {
+        // Round to 2 decimal places and remove trailing zeroes
+        return Number(beats.toFixed(2)).toString();
       };
-
       midi.tracks.forEach(track => {
         if (track.notes.length === 0) return;
         
@@ -341,18 +217,17 @@ const App = () => {
           const restDur = time - lastTime;
           if (restDur > 0.1) {
             const restBeats = restDur * (tempo / 60);
-            const restKey = findClosestDur(restBeats);
+            const restKey = formatBeats(restBeats);
             chScript += `R-${restKey} `;
           }
-          
+
           const noteNames = notes.map(n => n.name);
           const chordStr = noteNames.join('+');
           const duration = notes[0].duration;
           const beats = duration * (tempo / 60);
-          const durKey = findClosestDur(beats);
-          
-          chScript += `${chordStr}-${durKey} `;
-          
+          const durKey = formatBeats(beats);
+
+          chScript += `${chordStr}-${durKey} `;          
           lastTime = time + duration;
         });
         
@@ -384,8 +259,9 @@ const App = () => {
           channel.notes.forEach(noteObj => {
             Tone.Transport.schedule((time) => {
               const noteNames = noteObj.chord.map(n => n.name);
-              inst.triggerAttackRelease(noteNames, noteObj.toneDur, time);
-            }, beatsToTransportTime(noteObj.start));
+              const toneDur = noteObj.duration * (60 / Tone.Transport.bpm.value);
+              inst.triggerAttackRelease(noteNames, toneDur, time);
+            }, beatsToTransportTime(noteObj.start, parsedMusic.signature || 4));
           });
         }
       });
@@ -399,21 +275,45 @@ const App = () => {
   const stopPlayback = () => {
     Tone.Transport.stop();
     Tone.Transport.cancel();
+    if (metronomeLoopIdRef.current !== null) {
+      metronomeLoopIdRef.current = null;
+    }
     setIsPlaying(false);
     setPlaybackPos(0);
+    setViewScrollLeft(0);
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollLeft = 0;
     lastPosRef.current = 0;
   };
 
   useEffect(() => {
     const syncLoop = () => {
       if (Tone.Transport.state === "started") {
-        setPlaybackPos(Tone.Transport.seconds / (60 / tempo));
+        const newPos = Tone.Transport.seconds / (60 / tempo);
+        
+        // Auto-stop if we reach the end of the song
+        if (newPos >= parsedMusic.totalBeats + 1) { // Adding a small buffer of 1 beat
+          stopPlayback();
+          return;
+        }
+
+        setPlaybackPos(newPos);
+        if (scrollContainerRef.current) {
+          const beatWidth = 80;
+          const containerWidth = scrollContainerRef.current.clientWidth;
+          const targetScroll = (newPos * beatWidth) + 100 - (containerWidth / 2);
+          if (targetScroll > 0) {
+            scrollContainerRef.current.scrollLeft = targetScroll;
+          } else {
+            // Keep at start until the playhead reaches the center
+            scrollContainerRef.current.scrollLeft = 0;
+          }
+        }
       }
       animationRef.current = requestAnimationFrame(syncLoop);
     };
     animationRef.current = requestAnimationFrame(syncLoop);
     return () => cancelAnimationFrame(animationRef.current);
-  }, [tempo]);
+  }, [tempo, parsedMusic.totalBeats]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -425,27 +325,32 @@ const App = () => {
     canvas.height = height;
     const beatWidth = 80;
     const pitchHeight = 6;
-    const scrollX = playbackPos * beatWidth;
+    const scrollX = viewScrollLeft;
 
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 1;
-    for (let x = 0; x < width + scrollX; x += beatWidth) {
-      const lineX = x - scrollX + 100;
-      ctx.beginPath(); ctx.moveTo(lineX, 0); ctx.lineTo(lineX, height); ctx.stroke();
-    }
+    const beatsPerBar = Array.isArray(parsedMusic.signature) ? parsedMusic.signature[0] : (parsedMusic.signature || 4);
 
-    // Draw bar lines
-    ctx.strokeStyle = '#475569'; // Gray line for bars
-    ctx.lineWidth = 2;
-    (parsedMusic.barLines || []).forEach(pos => {
-      const x = (pos * beatWidth) - scrollX + 100;
-      if (x > 0 && x < width) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+    const startBeat = Math.floor((scrollX - 100) / beatWidth);
+    const endBeat = Math.ceil((scrollX + width - 100) / beatWidth);
+
+    for (let beat = Math.max(0, startBeat); beat <= endBeat; beat++) {
+      const lineX = (beat * beatWidth) - scrollX + 100;
+      
+      if (lineX > 0 && lineX < width) {
+        if (beat % beatsPerBar === 0) {
+          // Bar line
+          ctx.strokeStyle = '#475569';
+          ctx.lineWidth = 2;
+        } else {
+          // Beat line
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1;
+        }
+        ctx.beginPath(); ctx.moveTo(lineX, 0); ctx.lineTo(lineX, height); ctx.stroke();
       }
-    });
+    }
 
     const colors = { '1': '#60a5fa', '2': '#34d399', '3': '#f472b6', '4': '#fbbf24', '5': '#a78bfa' };
     Object.keys(parsedMusic.channels || {}).forEach(ch => {
@@ -462,9 +367,14 @@ const App = () => {
         });
       });
     });
-    ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(100, 0); ctx.lineTo(100, height); ctx.stroke();
-  }, [parsedMusic, playbackPos]);
+    
+    // Draw playhead
+    const playheadX = (playbackPos * beatWidth) - scrollX + 100;
+    if (playheadX > 0 && playheadX < width) {
+      ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, height); ctx.stroke();
+    }
+  }, [parsedMusic, playbackPos, viewScrollLeft]);
 
   return (
     <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
@@ -493,31 +403,35 @@ const App = () => {
                 <X size={20} />
               </button>
             </div>
-            <div className="p-8 overflow-y-auto space-y-8 text-sm text-slate-300">
-              <section>
-                <h3 className="text-indigo-400 font-bold uppercase tracking-widest text-[10px] mb-4 flex items-center gap-2">
-                  <Keyboard size={14} /> Syntax Guide
-                </h3>
-                <p className="mb-4 text-slate-400">Write music using channels, instruments, and notes.</p>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs space-y-1">
-                  <p className="text-slate-500">// Define Instrument</p>
-                  <p>CH1 @INST: PIANO</p>
-                  <p className="text-slate-500 mt-2">// Single Note (Note-Duration)</p>
-                  <p>CH1: C4-4 E4-4 G4-4</p>
-                  <p className="text-slate-500 mt-2">// Chord (Note+Note+Note-Duration)</p>
-                  <p>CH1: C4+E4+G4-2</p>
-                  <p className="text-slate-500 mt-2">// Short Chord (ChordQuality-Duration)</p>
-                  <p>CH1: C-2 Cm-2 C7-2 Cmaj7-2</p>
-                  <p className="text-slate-500 mt-2">// Supported Qualities: major (default), m, maj, min, 7, maj7, m7, sus2, sus4, aug, dim</p>
-                  <p className="text-slate-500 mt-2">// Inversions & Slash Chords (Chord/Bass-Duration)</p>
-                  <p>CH1: C/E-2 Cm/G-2 C/D-2</p>
-                  <p className="text-slate-500 mt-2">// Rest (R-Duration)</p>
-                  <p>CH1: R-4</p>
-                  <p className="text-slate-500 mt-2">// Bar Line</p>
-                  <p>CH1: C4-4 | E4-4</p>
-                  <p className="text-slate-500 mt-2">// Durations: 1 (whole), 2 (half), 4 (quarter), 8 (eighth), 16 (sixteenth)</p>
-                </div>
-              </section>
+            <div className="p-8 overflow-y-auto space-y-8 text-sm text-slate-300 custom-markdown">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({...props}) => <h1 className="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-2" {...props} />,
+                  h2: ({...props}) => <h2 className="text-lg font-bold text-indigo-400 mt-8 mb-4 uppercase tracking-widest text-[11px]" {...props} />,
+                  h3: ({...props}) => <h3 className="text-white font-bold mt-6 mb-2" {...props} />,
+                  p: ({...props}) => <p className="mb-4 text-slate-400 leading-relaxed" {...props} />,
+                  ul: ({...props}) => <ul className="list-disc list-inside mb-4 space-y-2 text-slate-400" {...props} />,
+                  li: ({...props}) => <li className="ml-4" {...props} />,
+                  code: ({inline, className, children, ...props}) => {
+                    const isBlock = !inline && (className?.includes('language-') || String(children).includes('\n'));
+                    return isBlock ? (
+                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs my-4 shadow-inner">
+                        <code className="text-indigo-300 block overflow-x-auto" {...props}>
+                          {children}
+                        </code>
+                      </div>
+                    ) : (
+                      <code className="bg-slate-800 text-indigo-300 px-1.5 py-0.5 rounded font-mono text-[11px] whitespace-nowrap" {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                  strong: ({...props}) => <strong className="text-indigo-300 font-bold" {...props} />,
+                }}
+              >
+                {specContent}
+              </ReactMarkdown>
 
               <section>
                 <h3 className="text-indigo-400 font-bold uppercase tracking-widest text-[10px] mb-4">Sample Library</h3>
@@ -554,6 +468,14 @@ const App = () => {
               onChange={(e) => setTempo(Math.max(20, parseInt(e.target.value) || 0))}
               className="bg-transparent w-10 text-center focus:outline-none font-bold text-indigo-400 text-sm"
             />
+            <div className="w-px h-4 bg-slate-700 mx-1"></div>
+            <button
+              onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+              className={`p-1 rounded-md transition-colors ${metronomeEnabled ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+              title="Toggle Metronome"
+            >
+              <BellRing size={16} />
+            </button>
           </div>
 
           <div className="flex gap-2">
@@ -629,8 +551,22 @@ const App = () => {
           </div>
 
           <div className="flex-1 relative overflow-hidden">
-            <canvas ref={canvasRef} className="w-full h-full" />
-            <div className="absolute bottom-6 left-6 bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/5 text-[11px] font-mono text-slate-400 shadow-2xl">
+            <canvas 
+              ref={canvasRef} 
+              className="absolute inset-0 w-full h-full pointer-events-none" 
+            />
+            
+            <div 
+              className="absolute inset-0 overflow-x-auto overflow-y-hidden custom-scrollbar"
+              ref={scrollContainerRef}
+              onScroll={(e) => {
+                setViewScrollLeft(e.target.scrollLeft);
+              }}
+            >
+              <div style={{ width: `${Math.max(1000, parsedMusic.totalBeats * 80 + 400)}px`, height: '100%' }}></div>
+            </div>
+
+            <div className="absolute bottom-6 left-6 bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/5 text-[11px] font-mono text-slate-400 shadow-2xl pointer-events-none">
               <span>POS: <span className="text-indigo-400">{playbackPos.toFixed(2)}</span></span>
             </div>
           </div>
