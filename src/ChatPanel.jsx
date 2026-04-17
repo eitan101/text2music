@@ -90,10 +90,10 @@ Instructions:
 
   return (
     <div 
-      className={`fixed right-0 top-0 bottom-0 w-[450px] bg-slate-900 border-l border-slate-700 shadow-2xl transform transition-transform duration-300 ease-in-out z-50 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+      className={`relative h-full bg-slate-900 border-slate-700 shadow-2xl transition-[width,min-width,border-width] duration-300 ease-in-out z-40 overflow-hidden shrink-0 ${isOpen ? 'w-[450px] min-w-[450px] border-l' : 'w-0 min-w-0 border-l-0'}`}
     >
-      <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-800/50">
-        <div className="flex items-center gap-2">
+      <div className="w-[450px] h-full flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-800/50">        <div className="flex items-center gap-2">
           <Bot className="text-indigo-400" size={20} />
           <h2 className="font-bold text-slate-200">Melody AI</h2>
         </div>
@@ -224,6 +224,7 @@ Instructions:
             <Send size={18} />
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

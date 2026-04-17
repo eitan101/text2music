@@ -367,19 +367,18 @@ const App = () => {
         // Auto-stop if we reach the end of the song
         if (newPos >= parsedMusic.totalBeats + 1) { // Adding a small buffer of 1 beat
           stopPlayback();
-          return;
-        }
-
-        setPlaybackPos(newPos);
-        if (scrollContainerRef.current) {
-          const beatWidth = 80;
-          const containerWidth = scrollContainerRef.current.clientWidth;
-          const targetScroll = (newPos * beatWidth) + 100 - (containerWidth / 2);
-          if (targetScroll > 0) {
-            scrollContainerRef.current.scrollLeft = targetScroll;
-          } else {
-            // Keep at start until the playhead reaches the center
-            scrollContainerRef.current.scrollLeft = 0;
+        } else {
+          setPlaybackPos(newPos);
+          if (scrollContainerRef.current) {
+            const beatWidth = 80;
+            const containerWidth = scrollContainerRef.current.clientWidth;
+            const targetScroll = (newPos * beatWidth) + 100 - (containerWidth / 2);
+            if (targetScroll > 0) {
+              scrollContainerRef.current.scrollLeft = targetScroll;
+            } else {
+              // Keep at start until the playhead reaches the center
+              scrollContainerRef.current.scrollLeft = 0;
+            }
           }
         }
       }
@@ -451,7 +450,8 @@ const App = () => {
   }, [parsedMusic, playbackPos, viewScrollLeft]);
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
+    <div className="flex flex-row h-screen w-screen overflow-hidden bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
+      <div className="flex flex-col flex-1 min-w-0 h-full transition-all duration-300 relative">
       {(!libLoaded && !libError) && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md">
           <Loader2 className="text-indigo-500 animate-spin mb-4" size={48} />
@@ -607,14 +607,6 @@ const App = () => {
           </div>
         )}
 
-        <ChatPanel 
-          isOpen={showChat} 
-          onClose={() => setShowChat(false)}
-          currentScript={script}
-          onApplyScript={(newScript) => setScript(newScript)}
-          specContent={specContent}
-        />
-
         <section className="w-1/3 flex flex-col border-r border-slate-800 bg-slate-900/30">
           <div className="flex items-center justify-between px-4 py-2.5 bg-slate-800/40 border-b border-slate-800">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
@@ -708,6 +700,16 @@ const App = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
       `}</style>
+      </div>
+
+      <ChatPanel 
+        isOpen={showChat} 
+        onClose={() => setShowChat(false)}
+        currentScript={script}
+        onApplyScript={(newScript) => setScript(newScript)}
+        specContent={specContent}
+      />
+
     </div>
   );
 };
