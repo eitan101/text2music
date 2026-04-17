@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import App from './App';
 import { beatsToTransportTime } from './utils';
+import LZString from 'lz-string';
 
 // Mock Tone.js since it's an audio library and might have issues in jsdom
 vi.mock('tone', () => {
@@ -93,5 +94,43 @@ describe('App Component', () => {
     // Click it to enable
     fireEvent.click(metronomeButton);
     expect(metronomeButton.className).toContain('text-indigo-400');
+  });
+
+  it('should allow jumping to next and previous bars', () => {
+    render(<App />);
+    const nextButton = screen.getByTitle('Next Bar');
+    const prevButton = screen.getByTitle('Previous Bar');
+    
+    expect(nextButton).toBeInTheDocument();
+    expect(prevButton).toBeInTheDocument();
+    
+    // Initial POS check (might need to wait for render if it was dynamic, but POS 0.00 is static on start)
+    expect(screen.getByText('0.00')).toBeInTheDocument();
+    
+    // Jump to next bar (4.00)
+    fireEvent.click(nextButton);
+    expect(screen.getByText('4.00')).toBeInTheDocument();
+    
+    // Jump to next bar again (8.00)
+    fireEvent.click(nextButton);
+    expect(screen.getByText('8.00')).toBeInTheDocument();
+    
+    // Jump to previous bar (4.00)
+    fireEvent.click(prevButton);
+    expect(screen.getByText('4.00')).toBeInTheDocument();
+  });
+
+  it('should initialize script from URL hash', () => {
+    const testScript = "CH1: C4-1";
+    const compressed = LZString.compressToEncodedURIComponent(testScript);
+    
+    // Mock window.location.hash
+    delete window.location;
+    window.location = { hash: `#${compressed}` };
+    
+    render(<App />);
+    
+    const textarea = screen.getByDisplayValue(testScript);
+    expect(textarea).toBeInTheDocument();
   });
 });

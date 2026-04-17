@@ -6,6 +6,7 @@ import { beatsToTransportTime } from './utils';
 import { parseMusic, NOTE_TO_FREQ } from './parser';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import LZString from 'lz-string';
 import specContent from '../spec.md?raw';
 
 /**
@@ -38,7 +39,48 @@ const SUPPORTED_INSTRUMENTS = [
 ];
 
 const App = () => {
-  const [script, setScript] = useState(DEFAULT_SCRIPT);
+  const [script, setScript] = useState(() => {
+    // Initialize from URL hash if available
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+      try {
+        const decompressed = LZString.decompressFromEncodedURIComponent(hash);
+        if (decompressed) return decompressed;
+      } catch (e) {
+        console.error("Failed to decompress script from URL", e);
+      }
+    }
+    return DEFAULT_SCRIPT;
+  });
+
+  // Update URL hash when script changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const compressed = LZString.compressToEncodedURIComponent(script);
+      window.history.replaceState(null, '', `#${compressed}`);
+    }, 500); // Debounce to avoid excessive history entries
+    return () => clearTimeout(timeoutId);
+  }, [script]);
+
+  // Handle back/forward buttons or manual hash changes
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.substring(1);
+      if (hash) {
+        try {
+          const decompressed = LZString.decompressFromEncodedURIComponent(hash);
+          if (decompressed && decompressed !== script) {
+            setScript(decompressed);
+          }
+        } catch (e) {
+          console.error("Hash change decompression failed", e);
+        }
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [script]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackPos, setPlaybackPos] = useState(0);
   const [viewScrollLeft, setViewScrollLeft] = useState(0);
