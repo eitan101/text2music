@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as Tone from 'tone';
-import { Play, Pause, Square, Music, Code, HelpCircle, Save, Download, Settings, ChevronRight, AlertCircle, Volume2, X, Info, Keyboard, Loader2, CloudDownload, Upload, BellRing } from 'lucide-react';
+import { Play, Pause, Square, Music, Code, HelpCircle, Save, Download, Settings, ChevronRight, AlertCircle, Volume2, X, Info, Keyboard, Loader2, CloudDownload, Upload, BellRing, SkipBack, SkipForward } from 'lucide-react';
 import { Midi } from '@tonejs/midi';
 import { beatsToTransportTime } from './utils';
 import { parseMusic, NOTE_TO_FREQ } from './parser';
@@ -272,6 +272,35 @@ const App = () => {
     }
   };
 
+  const seekTo = (newPos) => {
+    const clampedPos = Math.max(0, newPos);
+    setPlaybackPos(clampedPos);
+    lastPosRef.current = clampedPos;
+    if (Tone.Transport.state === "started") {
+      Tone.Transport.seconds = clampedPos * (60 / tempo);
+    }
+    
+    // Immediately keep the playhead centered
+    if (scrollContainerRef.current) {
+      const beatWidth = 80;
+      const containerWidth = scrollContainerRef.current.clientWidth;
+      const targetScroll = (clampedPos * beatWidth) + 100 - (containerWidth / 2);
+      scrollContainerRef.current.scrollLeft = Math.max(0, targetScroll);
+    }
+  };
+
+  const jumpToNextBar = () => {
+    const beatsPerBar = Array.isArray(parsedMusic.signature) ? parsedMusic.signature[0] : (parsedMusic.signature || 4);
+    const nextPos = Math.floor(playbackPos / beatsPerBar + 0.01 + 1) * beatsPerBar;
+    seekTo(nextPos);
+  };
+
+  const jumpToPreviousBar = () => {
+    const beatsPerBar = Array.isArray(parsedMusic.signature) ? parsedMusic.signature[0] : (parsedMusic.signature || 4);
+    const prevPos = Math.max(0, Math.ceil(playbackPos / beatsPerBar - 0.01 - 1) * beatsPerBar);
+    seekTo(prevPos);
+  };
+
   const stopPlayback = () => {
     Tone.Transport.stop();
     Tone.Transport.cancel();
@@ -478,7 +507,24 @@ const App = () => {
             </button>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <div className="flex gap-1 bg-slate-800/50 p-1 rounded-xl border border-slate-700/50 mr-2">
+              <button 
+                onClick={jumpToPreviousBar}
+                className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+                title="Previous Bar"
+              >
+                <SkipBack size={16} />
+              </button>
+              <button 
+                onClick={jumpToNextBar}
+                className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-slate-200 transition-colors"
+                title="Next Bar"
+              >
+                <SkipForward size={16} />
+              </button>
+            </div>
+
             <button onClick={stopPlayback} className="p-2.5 hover:bg-slate-800 rounded-xl transition-colors border border-transparent hover:border-slate-700">
               <Square size={18} fill="currentColor" className="text-slate-400" />
             </button>
@@ -557,10 +603,17 @@ const App = () => {
             />
             
             <div 
-              className="absolute inset-0 overflow-x-auto overflow-y-hidden custom-scrollbar"
+              className="absolute inset-0 overflow-x-auto overflow-y-hidden custom-scrollbar cursor-crosshair"
               ref={scrollContainerRef}
               onScroll={(e) => {
                 setViewScrollLeft(e.target.scrollLeft);
+              }}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left + e.currentTarget.scrollLeft;
+                const beatWidth = 80;
+                const newPos = (x - 100) / beatWidth;
+                seekTo(Math.max(0, newPos));
               }}
             >
               <div style={{ width: `${Math.max(1000, parsedMusic.totalBeats * 80 + 400)}px`, height: '100%' }}></div>
