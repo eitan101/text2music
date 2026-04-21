@@ -17,6 +17,7 @@ import ChatPanel from './ChatPanel';
  */
 
 const DEFAULT_SCRIPT = `// MelodyScript v0.6.7 - Numerical Beat Duration
+@TITLE: My First Song
 @TEMPO: 120
 @SIGNATURE: 4/4
 
@@ -184,6 +185,10 @@ const App = () => {
     }
     return true;
   }, [parsedMusic, loadedInstruments, libLoaded]);
+
+  useEffect(() => {
+    document.title = parsedMusic.title ? `${parsedMusic.title} - MelodyScript Studio` : 'MelodyScript Studio';
+  }, [parsedMusic.title]);
 
   useEffect(() => {
     Tone.Transport.bpm.value = tempo;
@@ -586,10 +591,11 @@ const App = () => {
             <Music size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-tight">MelodyScript Studio</h1>
+            <h1 className="text-sm font-bold tracking-tight">{parsedMusic.title || 'MelodyScript Studio'}</h1>
             <p className="text-[10px] text-slate-500 font-mono uppercase tracking-tighter">V0.6.6 | Polyphonic Support</p>
           </div>
         </div>
+
 
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3 bg-slate-800 px-4 py-1.5 rounded-full border border-slate-700">

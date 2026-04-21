@@ -24,11 +24,18 @@ export const parseMusic = (script) => {
     const channels = {};
     let parsedTempo = null;
     let parsedSignature = null;
+    let parsedTitle = null;
     const lines = script.split('\n');
 
     lines.forEach(line => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('//')) return;
+
+      const titleMatch = trimmed.match(/^@TITLE:\s*(.*)$/i);
+      if (titleMatch) {
+        parsedTitle = titleMatch[1].trim();
+        return;
+      }
 
       const tempoMatch = trimmed.match(/^@TEMPO:\s*(\d+)$/i);
       if (tempoMatch) {
@@ -156,9 +163,9 @@ export const parseMusic = (script) => {
     Object.values(channels).forEach(ch => {
       if (ch.totalDuration > maxBeats) maxBeats = ch.totalDuration;
     });
-    return { channels, tempo: parsedTempo, signature: parsedSignature, totalBeats: maxBeats };
+    return { title: parsedTitle, channels, tempo: parsedTempo, signature: parsedSignature, totalBeats: maxBeats };
   } catch (e) {
     console.error("Parse error:", e);
-    return { channels: {}, tempo: null, signature: null, totalBeats: 0 };
+    return { title: null, channels: {}, tempo: null, signature: null, totalBeats: 0 };
   }
 };

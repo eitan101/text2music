@@ -6,6 +6,8 @@ MelodyScript is a text-based Domain Specific Language (DSL) used to sequence mus
 ## 1. Global Directives
 Global directives configure the overall composition. They should be placed at the top of the file.
 
+- **`@TITLE: <string>`**: Sets the title of the song, displayed in the application header and window title.
+  - *Example:* `@TITLE: Moonlight Sonata`
 - **`@TEMPO: <bpm>`**: Sets the playback speed in Beats Per Minute.
   - *Example:* `@TEMPO: 120`
 - **`@SIGNATURE: <numerator>/<denominator>`**: Sets the time signature.

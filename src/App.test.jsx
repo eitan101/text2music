@@ -73,7 +73,11 @@ describe('beatsToTransportTime', () => {
 describe('App Component', () => {
   it('should render the app title', () => {
     render(<App />);
-    expect(screen.getByText(/MelodyScript Studio/i)).toBeInTheDocument();
+    const titleElements = screen.getAllByText(/My First Song/i);
+    expect(titleElements.length).toBeGreaterThan(0);
+    // Verify at least one is a heading
+    const hasHeading = titleElements.some(el => el.tagName === 'H1');
+    expect(hasHeading).toBe(true);
   });
 
   it('should display the default tempo', () => {

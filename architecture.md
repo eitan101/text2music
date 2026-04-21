@@ -7,7 +7,7 @@ The 'text2music' project is a React-based web application called 'MelodyScript S
 - **Frontend**: Built with React 19 and Vite.
 - **Audio Engine**: Powered by Tone.js. It includes a custom Metronome logic using `MembraneSynth`.
 - **Domain Logic**:
-  - **MelodyScript Parser (`src/parser.js`)**: A regex-based parser that converts the text script into a structured data object. It supports numerical beat durations (e.g., `-4` for 4 beats), short chord notation (e.g., `Cm`), and directives for `@TEMPO` and `@SIGNATURE`.
+  - **MelodyScript Parser (`src/parser.js`)**: A regex-based parser that converts the text script into a structured data object. It supports numerical beat durations (e.g., `-4` for 4 beats), short chord notation (e.g., `Cm`), and directives for `@TITLE`, `@TEMPO` and `@SIGNATURE`.
   - **Playback Controller**: Uses `Tone.Transport` to schedule events. Supports seeking to specific beats, jumping to next/previous bars, auto-scrolling during playback, and auto-stopping when the composition ends.
   - **MIDI Integration**: Uses `@tonejs/midi` to convert MIDI files into MelodyScript format.
 - **Visualization**: A custom Canvas-based sequencer view that renders notes and a moving playhead. It supports horizontal scrolling, dynamic grid lines, and click-to-seek functionality.
