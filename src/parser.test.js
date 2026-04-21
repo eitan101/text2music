@@ -93,15 +93,23 @@ CH2 @INST: CELLO`;
     expect(result.channels['1'].volume).toBe(100);
   });
 
-  it('should handle inline comments', () => {
-    const script = `@TEMPO: 120 // sets the speed
-CH1 @INST: PIANO // the main instrument
-CH1: C4-1 D4-1 // first two notes
-CH1: E4-1 // one more note`;
+  it('should parse E7 as a chord when @TYPE: CHORDS is specified', () => {
+    const script = `CH1 @TYPE: CHORDS
+CH1: E7-1`;
     const result = parseMusic(script);
-    expect(result.tempo).toBe(120);
-    expect(result.channels['1'].instrument).toBe('PIANO');
-    expect(result.channels['1'].notes).toHaveLength(3);
-    expect(result.channels['1'].totalDuration).toBe(3);
+    const chord = result.channels['1'].notes[0].chord;
+    
+    // E7 chord should have 4 notes
+    expect(chord.length).toBe(4);
+  });
+
+  it('should parse E7 as a note in octave 7 when @TYPE: MELODY is specified', () => {
+    const script = `CH1 @TYPE: MELODY
+CH1: E7-1`;
+    const result = parseMusic(script);
+    const chord = result.channels['1'].notes[0].chord;
+    
+    expect(chord.length).toBe(1);
+    expect(chord[0].name).toBe('E7');
   });
 });

@@ -1,5 +1,5 @@
 # MelodyScript Language Specification
-**Version:** 0.6.7
+**Version:** 0.6.8
 
 MelodyScript is a text-based Domain Specific Language (DSL) used to sequence music in the MelodyScript Studio.
 
@@ -18,6 +18,11 @@ Each track in MelodyScript is a "Channel" (CH1, CH2, etc.). You must assign an i
 
 - **Initialization Syntax:** `CH<number> @INST: <INSTRUMENT_NAME>`
   - *Example:* `CH1 @INST: PIANO`
+- **Channel Type:** `CH<number> @TYPE: <MELODY|CHORDS>`
+  - Sets the parsing priority for the channel.
+  - `MELODY` (default): Prefers interpreting tokens like `E7` as a note in octave 7.
+  - `CHORDS`: Prefers interpreting tokens like `E7` as an E dominant 7th chord.
+  - *Example:* `CH1 @TYPE: CHORDS`
 - **Volume Control:** `CH<number> @VOL: <0-100>`
   - Sets the volume level for the channel (default is 100). Can be standalone or inline.
   - *Example (Standalone):* `CH1 @VOL: 80`

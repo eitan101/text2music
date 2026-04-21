@@ -19,6 +19,43 @@ const CHORD_QUALITIES = {
   'dim': [0, 3, 6]
 };
 
+const parseShortChord = (match, bassNote, chordNotes) => {
+  const [_, root, quality = ''] = match;
+  const oct = 4;
+  const rootPitch = (oct * 12) + NOTE_TO_FREQ[root.toUpperCase()];
+  const intervals = CHORD_QUALITIES[quality];
+  
+  if (intervals) {
+    let calculatedIntervals = [...intervals];
+    
+    if (bassNote) {
+      const bassPitchClass = NOTE_TO_FREQ[bassNote.toUpperCase()];
+      const rootPitchClass = NOTE_TO_FREQ[root.toUpperCase()];
+      const chordPitches = intervals.map(i => (rootPitchClass + i) % 12);
+      const bassIndex = chordPitches.indexOf(bassPitchClass);
+      
+      if (bassIndex !== -1) {
+        calculatedIntervals = [
+          ...intervals.slice(bassIndex),
+          ...intervals.slice(0, bassIndex).map(i => i + 12)
+        ];
+      } else {
+        const bassPitch = (3 * 12) + bassPitchClass;
+        chordNotes.push({
+          pitch: bassPitch,
+          name: Tone.Frequency(bassPitch, "midi").toNote()
+        });
+      }
+    }
+    
+    calculatedIntervals.forEach(interval => {
+      const pitch = rootPitch + interval;
+      const noteName = Tone.Frequency(pitch, "midi").toNote();
+      chordNotes.push({ pitch, name: noteName });
+    });
+  }
+};
+
 export const parseMusic = (script) => {
   try {
     const channels = {};
@@ -58,9 +95,18 @@ export const parseMusic = (script) => {
         const chNum = instMatch[1];
         const instType = instMatch[2].toUpperCase();
         const vol = instMatch[3] ? parseInt(instMatch[3], 10) : null;
-        if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100 };
+        if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100, type: 'MELODY' };
         channels[chNum].instrument = instType;
         if (vol !== null) channels[chNum].volume = Math.max(0, Math.min(100, vol));
+        return;
+      }
+
+      const typeMatch = trimmed.match(/^CH(\d+)\s+@TYPE:\s*(CHORDS|MELODY)$/i);
+      if (typeMatch) {
+        const chNum = typeMatch[1];
+        const type = typeMatch[2].toUpperCase();
+        if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100, type: 'MELODY' };
+        channels[chNum].type = type;
         return;
       }
 
@@ -68,7 +114,7 @@ export const parseMusic = (script) => {
       if (volMatch) {
         const chNum = volMatch[1];
         const vol = parseInt(volMatch[2], 10);
-        if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100 };
+        if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100, type: 'MELODY' };
         channels[chNum].volume = Math.max(0, Math.min(100, vol));
         return;
       }
@@ -78,8 +124,9 @@ export const parseMusic = (script) => {
 
       const chNum = match[1];
       const tokensStr = match[2];
-      if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100 };
+      if (!channels[chNum]) channels[chNum] = { notes: [], totalDuration: 0, instrument: 'PIANO', volume: 100, type: 'MELODY' };
 
+      const channelType = channels[chNum].type;
       const tokens = tokensStr.split(/\s+/);
       tokens.forEach(token => {
         if (token === '|') {
@@ -107,49 +154,21 @@ export const parseMusic = (script) => {
           const chordBase = slashParts[0];
           const bassNote = slashParts[1];
 
+          // Priority logic based on channel type
           const noteMatch = chordBase.match(/^([A-Ga-g]#?|[A-Ga-g]b?)(\d)$/);
-          if (noteMatch && !bassNote) {
+          const shortChordMatch = chordBase.match(/^([A-Ga-g]#?|[A-Ga-g]b?)(m|maj|min|7|maj7|m7|sus2|sus4|aug|dim)?$/);
+
+          if (channelType === 'CHORDS' && shortChordMatch) {
+             // Prefer chord if it's a CHORDS channel
+             parseShortChord(shortChordMatch, bassNote, chordNotes);
+          } else if (noteMatch && !bassNote) {
+            // Prefer note if it's MELODY channel or if it didn't match chord
             const [_, name, oct] = noteMatch;
             const pitch = (parseInt(oct) * 12) + NOTE_TO_FREQ[name.toUpperCase()];
             chordNotes.push({ pitch, name: `${name}${oct}` });
-          } else {
-            const shortChordMatch = chordBase.match(/^([A-Ga-g]#?|[A-Ga-g]b?)(m|maj|min|7|maj7|m7|sus2|sus4|aug|dim)?$/);
-            if (shortChordMatch) {
-              const [_, root, quality = ''] = shortChordMatch;
-              const oct = 4;
-              const rootPitch = (oct * 12) + NOTE_TO_FREQ[root.toUpperCase()];
-              const intervals = CHORD_QUALITIES[quality];
-              
-              if (intervals) {
-                let calculatedIntervals = [...intervals];
-                
-                if (bassNote) {
-                  const bassPitchClass = NOTE_TO_FREQ[bassNote.toUpperCase()];
-                  const rootPitchClass = NOTE_TO_FREQ[root.toUpperCase()];
-                  const chordPitches = intervals.map(i => (rootPitchClass + i) % 12);
-                  const bassIndex = chordPitches.indexOf(bassPitchClass);
-                  
-                  if (bassIndex !== -1) {
-                    calculatedIntervals = [
-                      ...intervals.slice(bassIndex),
-                      ...intervals.slice(0, bassIndex).map(i => i + 12)
-                    ];
-                  } else {
-                    const bassPitch = (3 * 12) + bassPitchClass;
-                    chordNotes.push({
-                      pitch: bassPitch,
-                      name: Tone.Frequency(bassPitch, "midi").toNote()
-                    });
-                  }
-                }
-                
-                calculatedIntervals.forEach(interval => {
-                  const pitch = rootPitch + interval;
-                  const noteName = Tone.Frequency(pitch, "midi").toNote();
-                  chordNotes.push({ pitch, name: noteName });
-                });
-              }
-            }
+          } else if (shortChordMatch) {
+            // Fallback for MELODY channel if it matches chord but not note
+            parseShortChord(shortChordMatch, bassNote, chordNotes);
           }
         });
 

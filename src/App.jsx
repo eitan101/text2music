@@ -11,23 +11,23 @@ import specContent from '../spec.md?raw';
 import ChatPanel from './ChatPanel';
 
 /**
- * MELODYSCRIPT STUDIO v0.6.6
- * Feature: Added support for chords using the "Note+Note+Note-Duration" syntax.
- * Fix: Explicitly forcing .mp3 extension for SampleLibrary.
+ * MELODYSCRIPT STUDIO v0.6.8
+ * Feature: Added @TYPE: CHORDS / MELODY directive to disambiguate between notes and chords (e.g., E7).
+ * Feature: Added @TITLE directive for song naming.
  */
 
-const DEFAULT_SCRIPT = `// MelodyScript v0.6.7 - Numerical Beat Duration
+const DEFAULT_SCRIPT = `// MelodyScript v0.6.8 - Numerical Beat Duration
 @TITLE: My First Song
 @TEMPO: 120
 @SIGNATURE: 4/4
 
-CH1 @INST: PIANO
+CH1 @INST: PIANO @TYPE: CHORDS
 // Chords use short notation like C, Cm, C7, etc.
 // The number after the hyphen represents the exact number of beats!
 // e.g. C-4 is a whole bar in 4/4 time. Am-3 is a whole bar in 3/4.
 CH1: C-2 C/E-2 F-2 G-2 C-4
 
-CH2 @INST: CELLO
+CH2 @INST: CELLO @TYPE: MELODY
 // R stands for Rest
 CH2: C5-2 F5-2 G5-2 C5-6
 
@@ -592,7 +592,7 @@ const App = () => {
           </div>
           <div>
             <h1 className="text-sm font-bold tracking-tight">{parsedMusic.title || 'MelodyScript Studio'}</h1>
-            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-tighter">V0.6.6 | Polyphonic Support</p>
+            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-tighter">V0.6.8 | Chord Priority Support</p>
           </div>
         </div>
 
