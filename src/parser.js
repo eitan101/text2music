@@ -28,8 +28,12 @@ export const parseMusic = (script) => {
     const lines = script.split('\n');
 
     lines.forEach(line => {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('//')) return;
+      // Strip inline comments: everything after //
+      const commentIndex = line.indexOf('//');
+      const cleanLine = commentIndex !== -1 ? line.substring(0, commentIndex) : line;
+      
+      const trimmed = cleanLine.trim();
+      if (!trimmed) return;
 
       const titleMatch = trimmed.match(/^@TITLE:\s*(.*)$/i);
       if (titleMatch) {

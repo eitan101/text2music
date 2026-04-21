@@ -93,9 +93,14 @@ CH2 @INST: CELLO`;
     expect(result.channels['1'].volume).toBe(100);
   });
 
-  it('should ignore pipe characters', () => {
-    const script = `CH1: C4-1 | D4-1 | E4-1`;
+  it('should handle inline comments', () => {
+    const script = `@TEMPO: 120 // sets the speed
+CH1 @INST: PIANO // the main instrument
+CH1: C4-1 D4-1 // first two notes
+CH1: E4-1 // one more note`;
     const result = parseMusic(script);
+    expect(result.tempo).toBe(120);
+    expect(result.channels['1'].instrument).toBe('PIANO');
     expect(result.channels['1'].notes).toHaveLength(3);
     expect(result.channels['1'].totalDuration).toBe(3);
   });
