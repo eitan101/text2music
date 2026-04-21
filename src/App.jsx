@@ -90,6 +90,9 @@ const App = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
+  const [mutedChannels, setMutedChannels] = useState(new Set());
+  const [soloChannels, setSoloChannels] = useState(new Set());
+
   const [libLoaded, setLibLoaded] = useState(false);
   const [libError, setLibError] = useState(false);
 
@@ -297,6 +300,12 @@ const App = () => {
       Tone.Transport.cancel();
 
       Object.keys(parsedMusic.channels || {}).forEach(chId => {
+        const isMuted = mutedChannels.has(chId);
+        const isSoloed = soloChannels.has(chId);
+        const shouldPlay = !isMuted && (soloChannels.size === 0 || isSoloed);
+
+        if (!shouldPlay) return;
+
         const channel = parsedMusic.channels[chId];
         const inst = instrumentsRef.current[channel.instrument];
         if (inst) {
@@ -357,6 +366,38 @@ const App = () => {
     setViewScrollLeft(0);
     if (scrollContainerRef.current) scrollContainerRef.current.scrollLeft = 0;
     lastPosRef.current = 0;
+  };
+
+  const toggleMute = async (chId) => {
+    setMutedChannels(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(chId)) newSet.delete(chId);
+      else newSet.add(chId);
+      return newSet;
+    });
+    
+    if (isPlaying) {
+      const currentPos = Tone.Transport.seconds / (60 / tempo);
+      await togglePlayback(); // First call stops it
+      lastPosRef.current = currentPos;
+      setTimeout(() => togglePlayback(), 50); // Second call starts it again
+    }
+  };
+
+  const toggleSolo = async (chId) => {
+    setSoloChannels(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(chId)) newSet.delete(chId);
+      else newSet.add(chId);
+      return newSet;
+    });
+    
+    if (isPlaying) {
+      const currentPos = Tone.Transport.seconds / (60 / tempo);
+      await togglePlayback(); // First call stops it
+      lastPosRef.current = currentPos;
+      setTimeout(() => togglePlayback(), 50); // Second call starts it again
+    }
   };
 
   useEffect(() => {
@@ -426,8 +467,22 @@ const App = () => {
     }
 
     const colors = { '1': '#60a5fa', '2': '#34d399', '3': '#f472b6', '4': '#fbbf24', '5': '#a78bfa' };
-    Object.keys(parsedMusic.channels || {}).forEach(ch => {
+
+    const allChannels = Object.keys(parsedMusic.channels || {});
+    const inaudibleChannels = [];
+    const audibleChannels = [];
+
+    allChannels.forEach(ch => {
+      const isMuted = mutedChannels.has(ch);
+      const isSoloed = soloChannels.has(ch);
+      const isAudible = !isMuted && (soloChannels.size === 0 || isSoloed);
+      if (isAudible) audibleChannels.push(ch);
+      else inaudibleChannels.push(ch);
+    });
+
+    const drawChannel = (ch, isAudible) => {
       ctx.fillStyle = colors[ch] || '#94a3b8';
+      ctx.globalAlpha = isAudible ? 1.0 : 0.2;
       parsedMusic.channels[ch].notes.forEach(noteObj => {
         const x = (noteObj.start * beatWidth) - scrollX + 100;
         const w = noteObj.duration * beatWidth - 2;
@@ -439,16 +494,19 @@ const App = () => {
           }
         });
       });
-    });
-    
+    };
+
+    inaudibleChannels.forEach(ch => drawChannel(ch, false));
+    audibleChannels.forEach(ch => drawChannel(ch, true));
+    ctx.globalAlpha = 1.0;
+
     // Draw playhead
     const playheadX = (playbackPos * beatWidth) - scrollX + 100;
     if (playheadX > 0 && playheadX < width) {
       ctx.strokeStyle = '#f87171'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(playheadX, 0); ctx.lineTo(playheadX, height); ctx.stroke();
     }
-  }, [parsedMusic, playbackPos, viewScrollLeft]);
-
+    }, [parsedMusic, playbackPos, viewScrollLeft, mutedChannels, soloChannels]);
   return (
     <div className="flex flex-row h-screen w-screen overflow-hidden bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
       <div className="flex flex-col flex-1 min-w-0 h-full transition-all duration-300 relative">
@@ -644,9 +702,25 @@ const App = () => {
                   <span className={`text-[10px] font-mono font-bold tracking-tight ${loadedInstruments.has(parsedMusic.channels[ch].instrument) ? 'text-indigo-300' : 'text-slate-600 italic'}`}>
                     {parsedMusic.channels[ch].instrument}
                   </span>
-                  <span className="text-[9px] font-mono bg-slate-900/50 px-1.5 py-0.5 rounded text-slate-500 border border-white/5">
+                  <span className="text-[9px] font-mono bg-slate-900/50 px-1.5 py-0.5 rounded text-slate-500 border border-white/5 mr-1">
                     VOL: {parsedMusic.channels[ch].volume}
                   </span>
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => toggleMute(ch)}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold transition-colors ${mutedChannels.has(ch) ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-slate-800 text-slate-500 hover:text-slate-300 border border-slate-700/50'}`}
+                      title="Mute Channel"
+                    >
+                      M
+                    </button>
+                    <button 
+                      onClick={() => toggleSolo(ch)}
+                      className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold transition-colors ${soloChannels.has(ch) ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-800 text-slate-500 hover:text-slate-300 border border-slate-700/50'}`}
+                      title="Solo Channel"
+                    >
+                      S
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
