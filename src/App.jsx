@@ -11,12 +11,13 @@ import specContent from '../spec.md?raw';
 import ChatPanel from './ChatPanel';
 
 /**
- * MELODYSCRIPT STUDIO v0.6.8
+ * MELODYSCRIPT STUDIO v0.6.9
+ * Feature: Added synthetic CHOIR-AAH and CHOIR-OOH instruments.
  * Feature: Added @TYPE: CHORDS / MELODY directive to disambiguate between notes and chords (e.g., E7).
  * Feature: Added @TITLE directive for song naming.
  */
 
-const DEFAULT_SCRIPT = `// MelodyScript v0.6.8 - Numerical Beat Duration
+const DEFAULT_SCRIPT = `// MelodyScript v0.6.9 - Numerical Beat Duration
 @TITLE: My First Song
 @TEMPO: 120
 @SIGNATURE: 4/4
@@ -34,7 +35,7 @@ CH2: C5-2 F5-2 G5-2 C5-6
 // Try: CH1: Em-1 D-0.5 C-0.5`;
 
 const SUPPORTED_INSTRUMENTS = [
-  'BASS-ELECTRIC', 'BASSOON', 'CELLO', 'CLARINET', 'CONTRABASS',
+  'BASS-ELECTRIC', 'BASSOON', 'CELLO', 'CHOIR-AAH', 'CHOIR-OOH', 'CLARINET', 'CONTRABASS',
   'FLUTE', 'FRENCH-HORN', 'GUITAR-ACOUSTIC', 'GUITAR-ELECTRIC', 'GUITAR-NYLON',
   'HARMONIUM', 'HARP', 'ORGAN', 'PIANO', 'SAXOPHONE', 'TROMBONE',
   'TRUMPET', 'TUBA', 'VIOLIN', 'XYLOPHONE'
@@ -150,6 +151,26 @@ const App = () => {
         });
 
         instrumentsRef.current[upperKey] = sampler;
+      } else if (upperKey === 'CHOIR-AAH') {
+        const synth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'fatsawtooth', count: 3, spread: 20 },
+          envelope: { attack: 0.8, decay: 0.1, sustain: 0.8, release: 2.0 }
+        });
+        const filter = new Tone.Filter(1000, 'lowpass');
+        const chorus = new Tone.Chorus(4, 2.5, 0.5).start();
+        const reverb = new Tone.Freeverb(0.8, 2000);
+        synth.chain(filter, chorus, reverb, Tone.Destination);
+        instrumentsRef.current[upperKey] = synth;
+      } else if (upperKey === 'CHOIR-OOH') {
+        const synth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: 'fatsine', count: 3, spread: 20 },
+          envelope: { attack: 1.0, decay: 0.2, sustain: 0.9, release: 2.5 }
+        });
+        const filter = new Tone.Filter(400, 'lowpass');
+        const chorus = new Tone.Chorus(2, 2.5, 0.5).start();
+        const reverb = new Tone.Freeverb(0.8, 1000);
+        synth.chain(filter, chorus, reverb, Tone.Destination);
+        instrumentsRef.current[upperKey] = synth;
       } else {
         instrumentsRef.current[upperKey] = new Tone.PolySynth(Tone.Synth).toDestination();
       }
@@ -592,7 +613,7 @@ const App = () => {
           </div>
           <div>
             <h1 className="text-sm font-bold tracking-tight">{parsedMusic.title || 'MelodyScript Studio'}</h1>
-            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-tighter">V0.6.8 | Chord Priority Support</p>
+            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-tighter">V0.6.9 | Synthetic Choirs</p>
           </div>
         </div>
 

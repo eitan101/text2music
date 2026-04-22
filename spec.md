@@ -1,5 +1,5 @@
 # MelodyScript Language Specification
-**Version:** 0.6.8
+**Version:** 0.6.9
 
 MelodyScript is a text-based Domain Specific Language (DSL) used to sequence music in the MelodyScript Studio.
 
@@ -28,7 +28,7 @@ Each track in MelodyScript is a "Channel" (CH1, CH2, etc.). You must assign an i
   - *Example (Standalone):* `CH1 @VOL: 80`
   - *Example (Inline):* `CH1 @INST: PIANO @VOL: 80`
 - **Supported Instruments:**
-  `BASS-ELECTRIC`, `BASSOON`, `CELLO`, `CLARINET`, `CONTRABASS`, `FLUTE`, `FRENCH-HORN`, `GUITAR-ACOUSTIC`, `GUITAR-ELECTRIC`, `GUITAR-NYLON`, `HARMONIUM`, `HARP`, `ORGAN`, `PIANO`, `SAXOPHONE`, `TROMBONE`, `TRUMPET`, `TUBA`, `VIOLIN`, `XYLOPHONE`.
+  `BASS-ELECTRIC`, `BASSOON`, `CELLO`, `CHOIR-AAH`, `CHOIR-OOH`, `CLARINET`, `CONTRABASS`, `FLUTE`, `FRENCH-HORN`, `GUITAR-ACOUSTIC`, `GUITAR-ELECTRIC`, `GUITAR-NYLON`, `HARMONIUM`, `HARP`, `ORGAN`, `PIANO`, `SAXOPHONE`, `TROMBONE`, `TRUMPET`, `TUBA`, `VIOLIN`, `XYLOPHONE`.
 
 ## 3. Writing Sequences
 Sequence lines define the actual notes, chords, and rests to be played on a specific channel.
