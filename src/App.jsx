@@ -335,7 +335,7 @@ const App = () => {
         const channel = parsedMusic.channels[chId];
         const inst = instrumentsRef.current[channel.instrument];
         if (inst) {
-          const velocity = (channel.volume || 100) / 100;
+          const velocity = (channel.volume ?? 100) / 100;
           channel.notes.forEach(noteObj => {
             Tone.Transport.schedule((time) => {
               const noteNames = noteObj.chord.map(n => n.name);

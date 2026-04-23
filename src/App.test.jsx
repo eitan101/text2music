@@ -1,8 +1,11 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import * as Tone from 'tone';
 import App from './App';
 import { beatsToTransportTime } from './utils';
 import LZString from 'lz-string';
+
+const mockTriggerAttackRelease = vi.fn();
 
 // Mock Tone.js since it's an audio library and might have issues in jsdom
 vi.mock('tone', () => {
@@ -24,10 +27,11 @@ vi.mock('tone', () => {
         this.volume = { value: 0 };
       }
       toDestination() { return this; }
-      triggerAttackRelease() {}
+      triggerAttackRelease(...args) { mockTriggerAttackRelease(...args); }
     },
     PolySynth: class {
       toDestination() { return this; }
+      triggerAttackRelease(...args) { mockTriggerAttackRelease(...args); }
     },
     Synth: class {},
     Frequency: () => ({
@@ -136,5 +140,45 @@ describe('App Component', () => {
     
     const textarea = screen.getByDisplayValue(testScript);
     expect(textarea).toBeInTheDocument();
+  });
+
+  it('should use velocity 0 when volume is set to 0', async () => {
+    mockTriggerAttackRelease.mockClear();
+    Tone.Transport.schedule.mockClear();
+    
+    render(<App />);
+    
+    // Simulate the Tonejs-Instruments script loading
+    const scriptTags = document.querySelectorAll('script');
+    act(() => {
+      scriptTags.forEach(tag => {
+        if (tag.onload) tag.onload();
+      });
+    });
+    
+    // Wait for the UI to be available
+    const playButton = await screen.findByText(/PLAY/);
+    
+    // Change the script to have VOL: 0
+    const textareas = screen.getAllByRole('textbox');
+    const scriptTextarea = textareas[0];
+    fireEvent.change(scriptTextarea, { target: { value: 'CH1 @VOL: 0\nCH1: C4-1' } });
+    
+    // Click play
+    fireEvent.click(playButton);
+    
+    // Wait for the async togglePlayback to finish awaiting Tone.start()
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    
+    // Now trigger the scheduled event
+    expect(Tone.Transport.schedule).toHaveBeenCalled();
+    const scheduleCallback = Tone.Transport.schedule.mock.calls[0][0];
+    scheduleCallback(0); // pass time 0
+    
+    // Now check if mockTriggerAttackRelease was called with velocity 0
+    expect(mockTriggerAttackRelease).toHaveBeenCalled();
+    expect(mockTriggerAttackRelease.mock.calls[0][3]).toBe(0); // 4th parameter is velocity
   });
 });
